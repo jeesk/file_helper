@@ -41,11 +41,21 @@ function beforeRenderingHTML(data, chatboxClass) {
       htmlStr = '';
     }
   }, 300);
-  console.log("你好");
   localStorage.setItem("htmls", JSON.stringify(data));
 }
 function renderMessageHtml(data) {
-  return "<div class=\"c".concat(data.position, " cmsg\">\n        <img class=\"headIcon ").concat(data.diamond ? '' : 'radius', "\" src=\"").concat(data.headIcon, "\" ondragstart=\"return false;\" oncontextmenu=\"return false;\"/>\n        <span class=\"name\">\n            ").concat(renderTitleHtml(data.htitle, TitleType[data.htitleType] || ''), "\n            <span>").concat(escapeHtml(data.name) || '&nbsp;', "</span>\n        </span>\n        <span class=\"content\">").concat(data.messageType === 'raw' ? data.html : escapeHtml(data.html), "</span>\n    </div>");
+  return "<div class=\"c".concat(data.position, " cmsg\">\n        <img class=\"headIcon ").concat(data.diamond ? '' : 'radius', "\" src=\"").concat(data.headIcon, "\" ondragstart=\"return false;\" oncontextmenu=\"return false;\"/>\n        <span class=\"name\">\n            ").concat(renderTitleHtml(data.htitle, TitleType[data.htitleType] || ''), "\n            <span>").concat(escapeHtml(data.name) || '&nbsp;', "</span>\n        </span>\n        <span id=\"span_\" class=\"content\">").concat(data.messageType === 'raw' ? data.html : escapeHtml(data.html), "</span>\n    </div>");
+}
+
+// 事件委托，给父元素添加双击事件监听器
+document.addEventListener('dblclick', function (event) {
+  var target = event.target;
+  if (target.matches('.content')) {
+    handleDoubleClick(target);
+  }
+});
+function handleDoubleClick(element) {
+  navigator.clipboard.writeText(element.innerText);
 }
 function renderTitleHtml(content, css) {
   if (!content) return '';

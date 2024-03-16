@@ -100,46 +100,73 @@
 <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.5.1.min.js"></script>
 <script>
     const htmls = [];
-    var maxId = 0;
     var item = localStorage.getItem("htmls");
     if (item) {
         const arr = JSON.parse(item)
         for (let i = 0; i < arr.length; i++) {
             arr[i].isRender = false;
-            if (arr[i].id && arr[i].id > maxId) {
-                maxId = arr[i].id
-            }
             htmls.push(arr[i])
         }
     }
     beforeRenderingHTML(htmls, '.lite-chatbox');
-    const url = document.location.protocol + "//" + document.location.host + "/fp/all?minId=" + maxId
-    $.ajax(url,
-        {
-            success: function (data) {
-                const arr = JSON.parse(data)
-                if (arr.length > 0) {
-                    for (let i = 0; i < arr.length; i++) {
-                        htmls.push(arr[i])
-                    }
-                    for (let i = 0; i < htmls.length; i++) {
-                        htmls[i].isRender = false
-                    }
-                    htmls.sort((a, b) => {
-                        if (a.id < b.id) {
-                            return -1;
-                        } else if (a.id > b.id) {
-                            return 1;
-                        } else {
-                            return 0;
-                        }
-                    });
-                    beforeRenderingHTML(htmls, '.lite-chatbox');
-                }
+
+    function getMaxId() {
+        var maxId = 0;
+        for (let i = 0; i < htmls.length; i++) {
+            htmls[i].isRender = false;
+            if (htmls[i].id && htmls[i].id > maxId) {
+                maxId = htmls[i].id
             }
-        })
+        }
+        return maxId;
+    }
+
+    function refreshMessage() {
+        var maxId = getMaxId();
+        const url = document.location.protocol + "//" + document.location.host + "/fp/all?minId=" + maxId
+        $.ajax(url,
+            {
+                success: function (data) {
+                    try {
+                        const arr = JSON.parse(data)
+                        if (arr.length > 0) {
+                            for (let i = 0; i < arr.length; i++) {
+                                htmls.push(arr[i])
+                            }
+                            for (let i = 0; i < htmls.length; i++) {
+                                htmls[i].isRender = false
+                            }
+                            const filteredNumbers = htmls.filter(function (number) {
+                                return number.id;
+                            });
+                            htmls.length = 0
+                            for (let i = 0; i < filteredNumbers.length; i++) {
+                                htmls.push(filteredNumbers[i])
+                            }
+                            htmls.sort((a, b) => {
+                                if (a.id < b.id) {
+                                    return -1;
+                                } else if (a.id > b.id) {
+                                    return 1;
+                                } else {
+                                    return 0;
+                                }
+                            });
+                            beforeRenderingHTML(htmls, '.lite-chatbox');
+                        }
+                    } catch (e) {
+
+                    }
+                },
+                onError: function () {
+                }
+            })
+    }
+
+    refreshMessage()
 </script>
 <script>
+
     const btns = document.querySelectorAll('.theme-switch');
     const html = document.documentElement;
     const addEvent = btn => {
@@ -159,20 +186,56 @@
 </script>
 <script>
     var ws
-    document.querySelector('.send').onclick = function () {
+    const input = document.querySelector('.chatinput')
+
+    // 格式化文件大小
+    function formatFileSize(fileSize) {
+        if (fileSize < 1024) {
+            return fileSize + '字节';
+        } else if (fileSize < 1024 * 1024) {
+            var sizeInKB = fileSize / 1024;
+            return sizeInKB.toFixed(2) + 'KB';
+        } else if (fileSize < 1024 * 1024 * 1024) {
+            var sizeInMB = fileSize / (1024 * 1024);
+            return sizeInMB.toFixed(2) + 'MB';
+        } else {
+            var sizeInGB = fileSize / (1024 * 1024 * 1024);
+            return sizeInGB.toFixed(2) + 'GB';
+        }
+    }
+
+
+    function sendMeg() {
         const chatContent = {
             messageType: 'raw',
             headIcon: './images/B.jpg',
             name: 'SuperPaxxs',
             position: 'right',
-            html: document.querySelector('.chatinput').innerHTML,
+            html: input.innerHTML,
             uuid: uuidv4(),
+        }
+        if (ws.readyState != WebSocket.OPEN) {
+            window.alert("已经断开连接")
+            return
         }
         ws.send(JSON.stringify(chatContent))
         htmls.push(chatContent)
         document.querySelector('.chatinput').innerHTML = '';
         beforeRenderingHTML(htmls, '.lite-chatbox');
+    }
+
+    document.querySelector('.send').onclick = function () {
+        sendMeg();
     };
+
+    input.addEventListener('keydown', function (event) {
+
+        if (event.ctrlKey && event.key === 'Enter') {
+            event.preventDefault();
+            sendMeg()
+        }
+    });
+
     // 设置发送文件
     inputFile({
         // 允许发送文件
@@ -183,8 +246,25 @@
         maxImageNumber: 20, // 输入框内最多同时存在 20 张图片，默认为 -1（无限制），可以不设置
         // 负责发送文件的函数（回调函数），file 为传回的文件信息，与使用 <input> 标签获得的相同
         sendFileFunc: function (file) {
-            alert(file.name);
-            // console.log(file);
+            console.log("开始上传文件")
+            const url = document.location.protocol + "//" + document.location.host + "/fp/upload"
+            const staticUrlPrefix = "/fp/static/"
+            var data = new FormData();
+            data.append('file', file);
+            $.ajax({
+                url: url,
+                type: "post",
+                data: data,
+                cache: false,
+                processData: false,
+                contentType: false,
+                success: function (res) {
+                    var resp = JSON.parse(res);
+                    var fileSize = "( " + formatFileSize(file.size) + " )";
+                    const content = fileSize + " <a style='color: #0072c1' href='" + staticUrlPrefix + resp.filename + "' download>" + file.name + "</a> <br>"
+                    input.innerHTML += content
+                }
+            })
         }
     });
 
@@ -214,29 +294,18 @@
         return uuid;
     }
 
-    // 获取当前页面的URL
     const uuid = getUUID();
-    const maxReconnectAttempts = 5; // 最大重连次数
-    const reconnectDelay = 1000; // 初始重连延迟时间，单位：毫秒
-    let reconnectAttempts = 0; // 当前重连次数
-    let reconnectTimeout; // 重连的定时器
+    var ws
 
     function connectWebSocket() {
-        var ws
-        try{
-             ws = new WebSocket(protocol + "://" + document.location.host + "/fp/ws?uuid=" + localStorage.getItem("uuid"));
-        }catch (e){
-            console.log("连接失败："+e)
-        }
-
-        ws.onopen = function (evt) {};
-
+        ws = new WebSocket(protocol + "://" + document.location.host + "/fp/ws?uuid=" + localStorage.getItem("uuid"));
+        ws.onopen = function (evt) {
+            console.debug("连接到websocket")
+        };
         ws.onmessage = function (evt) {
-            console.log("Received Message: " + evt.data);
             var chatContent = JSON.parse(evt.data);
             switch (chatContent.opCode) {
                 case 0:
-                    console.log("收到替换事件");
                     for (let i = 0; i < htmls.length; i++) {
                         if (chatContent.data.uuid && chatContent.data.uuid == htmls[i].uuid) {
                             htmls[i].uuid = "";
@@ -247,55 +316,29 @@
                     }
                     break;
                 case 1:
-                    console.log("收到接收消息事件");
                     htmls.push(chatContent.data);
                     beforeRenderingHTML(htmls, '.lite-chatbox');
             }
         };
-
-        ws.onerror = function (evt){
-            console.log(ws.readyState);
-            console.log("onerror:"+evt)
-        }
         ws.onclose = function (evt) {
             if (evt.reason && evt.reason == "connection replaced") {
                 window.alert("一个浏览器只允许一个窗口");
             } else {
-                reconnect();
+                console.log("websocket 被关闭,5s后开始执行重试请求策略")
+                setTimeout(function () {
+                    connectWebSocket()
+                }, 5000)
             }
         };
 
         return ws;
     }
 
-    function reconnect() {
-        if (reconnectAttempts >= maxReconnectAttempts) {
-            // 达到最大重连次数，进行相应处理
-            console.log("达到最大重连次数");
-            return;
-        }
-
-        clearTimeout(reconnectTimeout);
-
-        // 使用指数退避策略增加重连延迟时间
-        const delay = Math.pow(2, reconnectAttempts) * reconnectDelay;
-
-        reconnectTimeout = setTimeout(function () {
-            console.log("正在进行第 " + (reconnectAttempts + 1) + " 次重连");
-            reconnectAttempts++;
-            initWebSocket();
-        }, delay);
-    }
-
     function initWebSocket() {
         ws = connectWebSocket();
-
         setInterval(function () {
             if (ws.readyState == WebSocket.OPEN) {
                 ws.send("ping");
-            }
-            if (ws.readyState == WebSocket.CLOSED) {
-                reconnect();
             }
         }, 5000);
     }
