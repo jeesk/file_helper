@@ -5,9 +5,9 @@
     <meta name="viewport" content="height=device-height, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>文件传输助手</title>
-    <link rel="stylesheet" type="text/css" href="css/litewebchat.min.css">
-    <link rel="stylesheet" type="text/css" href="css/litewebchat_input.min.css">
-    <script src="js/browser.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/litewebchat.css">
+    <link rel="stylesheet" type="text/css" href="css/litewebchat_input.css">
+    <script src="./js/browser.min.js"></script>
     <script>
         function setupWidth() {
             const b = browser()
@@ -94,19 +94,30 @@
     </div>
 </div><!-- Emoji Mart-->
 <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
-<script src="./js/litewebchat_input.min.js"></script><!-- 抽离的聊天信息组件 -->
-<script src="./js/litewebchat_render.min.js"></script>
-<script src="./js/browser.min.js"></script><!-- 抽离的聊天信息组件 -->
+<script src="./js/litewebchat_input.js"></script><!-- 抽离的聊天信息组件 -->
+<script src="./js/litewebchat_render.js"></script>
 <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.5.1.min.js"></script>
 <script>
     const htmls = [];
     var item = localStorage.getItem("htmls");
+
+    function setNewHtmls(finalHtmls) {
+        htmls.length = 0
+        for (let i = 0; i < finalHtmls.length; i++) {
+            htmls.push(finalHtmls[i])
+        }
+    }
+
     if (item) {
         const arr = JSON.parse(item)
         for (let i = 0; i < arr.length; i++) {
             arr[i].isRender = false;
             htmls.push(arr[i])
         }
+        const finalHtmls = htmls.filter(function (item) {
+            return item.messageType.indexOf("tips") != -1;
+        });
+        setNewHtmls(finalHtmls);
     }
     beforeRenderingHTML(htmls, '.lite-chatbox');
 
@@ -136,13 +147,11 @@
                             for (let i = 0; i < htmls.length; i++) {
                                 htmls[i].isRender = false
                             }
-                            const filteredNumbers = htmls.filter(function (number) {
-                                return number.id;
+                            const filteredNumbers = htmls.filter(function (item) {
+                                return item.id;
                             });
-                            htmls.length = 0
-                            for (let i = 0; i < filteredNumbers.length; i++) {
-                                htmls.push(filteredNumbers[i])
-                            }
+                            setNewHtmls(filteredNumbers)
+
                             htmls.sort((a, b) => {
                                 if (a.id < b.id) {
                                     return -1;
@@ -166,7 +175,6 @@
     refreshMessage()
 </script>
 <script>
-
     const btns = document.querySelectorAll('.theme-switch');
     const html = document.documentElement;
     const addEvent = btn => {
@@ -210,7 +218,7 @@
             messageType: 'raw',
             headIcon: './images/B.jpg',
             name: 'SuperPaxxs',
-            position: 'right',
+            position: 'left',
             html: input.innerHTML,
             uuid: uuidv4(),
         }
@@ -322,7 +330,12 @@
         };
         ws.onclose = function (evt) {
             if (evt.reason && evt.reason == "connection replaced") {
-                window.alert("一个浏览器只允许一个窗口");
+                const ct = {
+                    messageType: 'tipsDanger',
+                    html: '当前窗口会话已关闭'
+                }
+                htmls.push(ct)
+                beforeRenderingHTML(htmls, ".lite-chatbox")
             } else {
                 console.log("websocket 被关闭,5s后开始执行重试请求策略")
                 setTimeout(function () {
@@ -344,6 +357,10 @@
     }
 
     initWebSocket();
+</script>
+<script>
+    (function () {
+    })();
 </script>
 </body>
 </html>
